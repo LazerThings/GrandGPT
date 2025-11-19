@@ -281,10 +281,10 @@ async function deleteChat(chatId) {
 
         if (currentChatId === chatId) {
             currentChatId = null;
-            chatTitle.textContent = 'Chat with Claude';
+            chatTitle.textContent = 'GrandGPT';
             messagesContainer.innerHTML = `
                 <div class="welcome-message">
-                    <h2>Welcome to Claude!</h2>
+                    <h2>Welcome to GrandGPT!</h2>
                     <p>Start a new chat to begin conversing.</p>
                 </div>
             `;
