@@ -167,13 +167,8 @@ function appendMessage(role, content) {
     const contentDiv = document.createElement('div');
     contentDiv.className = 'message-content';
 
-    if (role === 'assistant') {
-        // Render markdown for assistant messages
-        contentDiv.innerHTML = marked.parse(content);
-    } else {
-        // Plain text for user messages
-        contentDiv.textContent = content;
-    }
+    // Render markdown for all messages (both user and assistant)
+    contentDiv.innerHTML = marked.parse(content);
 
     messageDiv.appendChild(header);
     messageDiv.appendChild(contentDiv);
