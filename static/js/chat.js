@@ -70,6 +70,15 @@ confirmModal.addEventListener('click', (e) => {
     }
 });
 
+// Close chat menus when clicking outside
+document.addEventListener('click', (e) => {
+    if (!e.target.closest('.chat-item-menu') && !e.target.closest('.chat-item-menu-btn')) {
+        document.querySelectorAll('.chat-item-menu.active').forEach(menu => {
+            menu.classList.remove('active');
+        });
+    }
+});
+
 // Functions
 async function loadChats() {
     try {
@@ -98,22 +107,47 @@ function renderChatList() {
 
         chatItem.innerHTML = `
             <div class="chat-item-title">${escapeHtml(chat.title)}</div>
-            <button class="chat-item-delete" data-chat-id="${chat.id}" title="Delete chat">
-                <i class="ph-light ph-trash-simple"></i>
+            <button class="chat-item-menu-btn" data-chat-id="${chat.id}" title="Chat options">
+                <i class="ph-light ph-dots-three-circle"></i>
             </button>
+            <div class="chat-item-menu" data-chat-id="${chat.id}">
+                <button class="chat-menu-option" data-action="rename">Rename</button>
+                <button class="chat-menu-option chat-menu-delete" data-action="delete">Delete</button>
+            </div>
         `;
 
         chatItem.addEventListener('click', (e) => {
-            // Don't load chat if clicking delete button or its icon
-            if (!e.target.closest('.chat-item-delete')) {
+            // Don't load chat if clicking menu button or menu options
+            if (!e.target.closest('.chat-item-menu-btn') && !e.target.closest('.chat-item-menu')) {
                 loadChat(chat.id);
             }
         });
 
-        const deleteBtn = chatItem.querySelector('.chat-item-delete');
-        deleteBtn.addEventListener('click', (e) => {
+        const menuBtn = chatItem.querySelector('.chat-item-menu-btn');
+        const menu = chatItem.querySelector('.chat-item-menu');
+
+        menuBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            deleteChat(chat.id);
+            // Close all other menus
+            document.querySelectorAll('.chat-item-menu.active').forEach(m => {
+                if (m !== menu) m.classList.remove('active');
+            });
+            menu.classList.toggle('active');
+        });
+
+        // Handle menu options
+        menu.querySelectorAll('.chat-menu-option').forEach(option => {
+            option.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const action = option.dataset.action;
+                menu.classList.remove('active');
+
+                if (action === 'delete') {
+                    deleteChat(chat.id);
+                } else if (action === 'rename') {
+                    renameChat(chat.id, chat.title);
+                }
+            });
         });
 
         chatList.appendChild(chatItem);
@@ -167,15 +201,50 @@ function renderMessages(messages) {
     }
 
     messages.forEach(message => {
-        appendMessage(message.role, message.content);
+        appendMessage(message.role, message.content, message.id);
     });
 
     scrollToBottom();
 }
 
-function appendMessage(role, content) {
+function appendMessage(role, content, messageId = null) {
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${role}`;
+    if (messageId) {
+        messageDiv.dataset.messageId = messageId;
+    }
+
+    const borderDiv = document.createElement('div');
+    borderDiv.className = 'message-border';
+
+    // Add action buttons in the border
+    const actionsDiv = document.createElement('div');
+    actionsDiv.className = 'message-actions';
+
+    if (role === 'user') {
+        actionsDiv.innerHTML = `
+            <button class="message-action-btn" data-action="copy" title="Copy message">
+                <i class="ph-light ph-copy"></i>
+            </button>
+            <button class="message-action-btn" data-action="edit" title="Edit message">
+                <i class="ph-light ph-pencil-simple"></i>
+            </button>
+            <button class="message-action-btn" data-action="regenerate" title="Regenerate response">
+                <i class="ph-light ph-arrows-counter-clockwise"></i>
+            </button>
+        `;
+    } else {
+        actionsDiv.innerHTML = `
+            <button class="message-action-btn" data-action="copy" title="Copy message">
+                <i class="ph-light ph-copy"></i>
+            </button>
+            <button class="message-action-btn" data-action="regenerate" title="Regenerate response">
+                <i class="ph-light ph-arrows-counter-clockwise"></i>
+            </button>
+        `;
+    }
+
+    borderDiv.appendChild(actionsDiv);
 
     const contentDiv = document.createElement('div');
     contentDiv.className = 'message-content';
@@ -191,8 +260,18 @@ function appendMessage(role, content) {
 
     contentDiv.appendChild(header);
     contentDiv.appendChild(messageText);
+
+    messageDiv.appendChild(borderDiv);
     messageDiv.appendChild(contentDiv);
     messagesContainer.appendChild(messageDiv);
+
+    // Add event listeners for action buttons
+    actionsDiv.querySelectorAll('.message-action-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const action = btn.dataset.action;
+            handleMessageAction(action, messageId, content, messageDiv);
+        });
+    });
 }
 
 async function sendMessage() {
@@ -285,6 +364,151 @@ async function sendMessage() {
         sendBtn.disabled = false;
         messageInput.focus();
     }
+}
+
+function handleMessageAction(action, messageId, content, messageDiv) {
+    if (action === 'copy') {
+        // Copy message content to clipboard
+        navigator.clipboard.writeText(content).then(() => {
+            // Show a brief success indicator
+            const btn = messageDiv.querySelector(`[data-action="copy"]`);
+            const originalColor = btn.style.color;
+            btn.style.color = 'var(--primary-color)';
+            setTimeout(() => {
+                btn.style.color = originalColor;
+            }, 500);
+        });
+    } else if (action === 'edit') {
+        // Edit message - show input field
+        const messageText = messageDiv.querySelector('.message-text');
+        const currentText = content;
+
+        // Create textarea for editing
+        const textarea = document.createElement('textarea');
+        textarea.className = 'message-edit-textarea';
+        textarea.value = currentText;
+        textarea.style.width = '100%';
+        textarea.style.minHeight = '60px';
+        textarea.style.padding = '8px';
+        textarea.style.backgroundColor = 'var(--bg-black)';
+        textarea.style.color = 'var(--text-primary)';
+        textarea.style.border = '1px solid var(--primary-color)';
+        textarea.style.borderRadius = '4px';
+        textarea.style.fontFamily = 'inherit';
+        textarea.style.fontSize = '14px';
+
+        // Create save/cancel buttons
+        const buttonContainer = document.createElement('div');
+        buttonContainer.style.display = 'flex';
+        buttonContainer.style.gap = '8px';
+        buttonContainer.style.marginTop = '8px';
+
+        const saveBtn = document.createElement('button');
+        saveBtn.textContent = 'Save';
+        saveBtn.className = 'btn btn-primary';
+        saveBtn.style.padding = '6px 12px';
+        saveBtn.style.fontSize = '13px';
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.textContent = 'Cancel';
+        cancelBtn.className = 'btn btn-secondary';
+        cancelBtn.style.padding = '6px 12px';
+        cancelBtn.style.fontSize = '13px';
+
+        buttonContainer.appendChild(saveBtn);
+        buttonContainer.appendChild(cancelBtn);
+
+        // Replace content with edit form
+        messageText.innerHTML = '';
+        messageText.appendChild(textarea);
+        messageText.appendChild(buttonContainer);
+        textarea.focus();
+
+        cancelBtn.onclick = () => {
+            messageText.innerHTML = marked.parse(currentText);
+        };
+
+        saveBtn.onclick = async () => {
+            const newContent = textarea.value.trim();
+            if (!newContent || newContent === currentText) {
+                messageText.innerHTML = marked.parse(currentText);
+                return;
+            }
+
+            // Update message and regenerate response
+            try {
+                const response = await fetch(`/api/messages/${messageId}/edit`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ content: newContent })
+                });
+
+                const data = await response.json();
+
+                // Reload chat to get updated messages
+                await loadChat(currentChatId);
+            } catch (error) {
+                console.error('Error editing message:', error);
+                messageText.innerHTML = marked.parse(currentText);
+            }
+        };
+    } else if (action === 'regenerate') {
+        // Regenerate response
+        if (!messageId) return;
+
+        regenerateResponse(messageId);
+    }
+}
+
+async function regenerateResponse(messageId) {
+    if (!currentChatId) return;
+
+    try {
+        const response = await fetch(`/api/messages/${messageId}/regenerate`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+
+        const data = await response.json();
+
+        // Reload chat to show regenerated response
+        await loadChat(currentChatId);
+    } catch (error) {
+        console.error('Error regenerating response:', error);
+    }
+}
+
+function renameChat(chatId, currentTitle) {
+    const newTitle = prompt('Enter new chat title:', currentTitle);
+    if (!newTitle || newTitle.trim() === '' || newTitle === currentTitle) {
+        return;
+    }
+
+    fetch(`/api/chats/${chatId}/rename`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ title: newTitle.trim() })
+    })
+    .then(response => response.json())
+    .then(data => {
+        const chatInList = chats.find(c => c.id === chatId);
+        if (chatInList) {
+            chatInList.title = data.title;
+            renderChatList();
+            if (currentChatId === chatId) {
+                chatTitle.textContent = data.title;
+            }
+        }
+    })
+    .catch(error => {
+        console.error('Error renaming chat:', error);
+    });
 }
 
 function deleteChat(chatId) {

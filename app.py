@@ -150,6 +150,22 @@ def delete_chat(chat_id):
 
     return jsonify({'success': True})
 
+@app.route('/api/chats/<int:chat_id>/rename', methods=['POST'])
+@login_required
+def rename_chat(chat_id):
+    chat = Chat.query.filter_by(id=chat_id, user_id=current_user.id).first_or_404()
+    data = request.json
+    new_title = data.get('title', '').strip()
+
+    if not new_title:
+        return jsonify({'error': 'Title cannot be empty'}), 400
+
+    chat.title = new_title
+    chat.updated_at = datetime.utcnow()
+    db.session.commit()
+
+    return jsonify({'title': chat.title})
+
 @app.route('/api/chats/<int:chat_id>/messages', methods=['POST'])
 @login_required
 def send_message(chat_id):
@@ -199,9 +215,21 @@ def send_message(chat_id):
 
         # Update chat title if it's the first message
         if len(messages) == 0:
-            # Generate a simple title from the first message
-            title = user_message[:50] + ('...' if len(user_message) > 50 else '')
-            chat.title = title
+            # Generate AI-powered title
+            try:
+                title_response = anthropic_client.messages.create(
+                    model=MODEL,
+                    max_tokens=50,
+                    system="You are a helpful assistant that generates short, concise titles for chat conversations. Based on the user's first message, provide ONLY a short title (3-6 words) for the conversation. Do not include quotes, punctuation at the end, or any other text - just the title.",
+                    messages=[{
+                        'role': 'user',
+                        'content': f"Generate a short title for a chat that starts with this message: {user_message}"
+                    }]
+                )
+                chat.title = title_response.content[0].text.strip()
+            except:
+                # Fallback to simple title if AI generation fails
+                chat.title = user_message[:50] + ('...' if len(user_message) > 50 else '')
 
         chat.updated_at = datetime.utcnow()
         db.session.commit()
@@ -221,6 +249,112 @@ def send_message(chat_id):
             },
             'chat_title': chat.title
         })
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/messages/<int:message_id>/edit', methods=['POST'])
+@login_required
+def edit_message(message_id):
+    message = Message.query.get_or_404(message_id)
+    chat = Chat.query.filter_by(id=message.chat_id, user_id=current_user.id).first_or_404()
+
+    data = request.json
+    new_content = data.get('content', '').strip()
+
+    if not new_content:
+        return jsonify({'error': 'Message cannot be empty'}), 400
+
+    # Update the user message
+    message.content = new_content
+
+    # Delete all messages after this one (including the old assistant response)
+    Message.query.filter(
+        Message.chat_id == message.chat_id,
+        Message.created_at > message.created_at
+    ).delete()
+
+    # Get conversation history up to this point
+    messages = Message.query.filter_by(chat_id=message.chat_id).order_by(Message.created_at).all()
+
+    # Build conversation for API
+    conversation = []
+    for msg in messages:
+        conversation.append({
+            'role': msg.role,
+            'content': msg.content
+        })
+
+    try:
+        # Call Anthropic API to generate new response
+        response = anthropic_client.messages.create(
+            model=MODEL,
+            max_tokens=2048,
+            system=SYSTEM_PROMPT,
+            messages=conversation
+        )
+
+        assistant_message = response.content[0].text
+
+        # Save new assistant message
+        assistant_msg = Message(chat_id=message.chat_id, role='assistant', content=assistant_message)
+        db.session.add(assistant_msg)
+
+        chat.updated_at = datetime.utcnow()
+        db.session.commit()
+
+        return jsonify({'success': True})
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/messages/<int:message_id>/regenerate', methods=['POST'])
+@login_required
+def regenerate_message(message_id):
+    message = Message.query.get_or_404(message_id)
+    chat = Chat.query.filter_by(id=message.chat_id, user_id=current_user.id).first_or_404()
+
+    # Delete this message and all messages after it
+    Message.query.filter(
+        Message.chat_id == message.chat_id,
+        Message.created_at >= message.created_at
+    ).delete()
+
+    # Get conversation history up to the previous message
+    messages = Message.query.filter_by(chat_id=message.chat_id).order_by(Message.created_at).all()
+
+    if not messages:
+        return jsonify({'error': 'No previous messages to regenerate from'}), 400
+
+    # Build conversation for API
+    conversation = []
+    for msg in messages:
+        conversation.append({
+            'role': msg.role,
+            'content': msg.content
+        })
+
+    try:
+        # Call Anthropic API to generate new response
+        response = anthropic_client.messages.create(
+            model=MODEL,
+            max_tokens=2048,
+            system=SYSTEM_PROMPT,
+            messages=conversation
+        )
+
+        assistant_message = response.content[0].text
+
+        # Save new assistant message
+        assistant_msg = Message(chat_id=message.chat_id, role='assistant', content=assistant_message)
+        db.session.add(assistant_msg)
+
+        chat.updated_at = datetime.utcnow()
+        db.session.commit()
+
+        return jsonify({'success': True})
 
     except Exception as e:
         db.session.rollback()

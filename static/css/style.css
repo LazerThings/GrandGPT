@@ -201,7 +201,7 @@ body {
     text-overflow: ellipsis;
 }
 
-.chat-item-delete {
+.chat-item-menu-btn {
     position: absolute;
     top: 50%;
     transform: translateY(-50%);
@@ -219,11 +219,49 @@ body {
     justify-content: center;
 }
 
-.chat-item:hover .chat-item-delete {
+.chat-item:hover .chat-item-menu-btn {
     opacity: 1;
 }
 
-.chat-item-delete:hover {
+.chat-item-menu-btn:hover {
+    color: var(--text-primary);
+}
+
+.chat-item-menu {
+    position: absolute;
+    top: 100%;
+    right: 10px;
+    background-color: var(--bg-darker);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    display: none;
+    flex-direction: column;
+    min-width: 120px;
+    z-index: 100;
+    margin-top: 5px;
+}
+
+.chat-item-menu.active {
+    display: flex;
+}
+
+.chat-menu-option {
+    background: none;
+    border: none;
+    color: var(--text-primary);
+    padding: 10px 15px;
+    text-align: left;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.2s;
+}
+
+.chat-menu-option:hover {
+    background-color: var(--bg-black);
+}
+
+.chat-menu-delete:hover {
     color: #dc2626;
 }
 
@@ -286,6 +324,8 @@ body {
 .message {
     margin-bottom: 20px;
     max-width: 800px;
+    display: flex;
+    gap: 0;
 }
 
 .message.user {
@@ -294,6 +334,61 @@ body {
 
 .message.assistant {
     margin-right: auto;
+}
+
+.message-border {
+    width: 4px;
+    background-color: var(--text-secondary);
+    position: relative;
+    transition: width 0.3s ease;
+    flex-shrink: 0;
+    display: flex;
+    align-items: flex-start;
+    padding-top: 20px;
+}
+
+.message.assistant .message-border {
+    background-color: var(--primary-color);
+}
+
+.message:hover .message-border {
+    width: 12px;
+}
+
+.message-actions {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.message:hover .message-actions {
+    opacity: 1;
+}
+
+.message-action-btn {
+    background: var(--bg-darker);
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    width: 28px;
+    height: 28px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 16px;
+    transition: all 0.2s;
+}
+
+.message-action-btn:hover {
+    background: var(--bg-black);
+    color: var(--text-primary);
+    border-color: var(--primary-color);
 }
 
 .message-header {
@@ -312,15 +407,7 @@ body {
 .message-content {
     padding: 3px 3px 3px 8px;
     background-color: rgba(255, 255, 255, 0.03);
-    border-left: 4px solid var(--text-secondary);
-}
-
-.message.user .message-content {
-    border-left-color: var(--text-secondary);
-}
-
-.message.assistant .message-content {
-    border-left-color: var(--primary-color);
+    flex: 1;
 }
 
 .message-text p {
