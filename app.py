@@ -42,6 +42,14 @@ def get_anthropic_client(user):
         return Anthropic(api_key=user.custom_api_key)
     return anthropic_client
 
+def get_max_tokens(user):
+    """Get max tokens based on user's extended access."""
+    # Users with anthropic or global extended access get 64K tokens
+    if user.has_extended_access('anthropic') or user.has_extended_access('global'):
+        return 65536  # 64K
+    # Default users get 4K tokens
+    return 4096
+
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
@@ -214,11 +222,12 @@ def send_message(chat_id):
     try:
         # Get the appropriate Anthropic client for the user
         client = get_anthropic_client(current_user)
+        max_tokens = get_max_tokens(current_user)
 
         # Call Anthropic API
         response = client.messages.create(
             model=MODEL,
-            max_tokens=2048,
+            max_tokens=max_tokens,
             system=SYSTEM_PROMPT,
             messages=conversation
         )
@@ -305,11 +314,12 @@ def edit_message(message_id):
     try:
         # Get the appropriate Anthropic client for the user
         client = get_anthropic_client(current_user)
+        max_tokens = get_max_tokens(current_user)
 
         # Call Anthropic API to generate new response
         response = client.messages.create(
             model=MODEL,
-            max_tokens=2048,
+            max_tokens=max_tokens,
             system=SYSTEM_PROMPT,
             messages=conversation
         )
@@ -368,11 +378,12 @@ def regenerate_message(message_id):
     try:
         # Get the appropriate Anthropic client for the user
         client = get_anthropic_client(current_user)
+        max_tokens = get_max_tokens(current_user)
 
         # Call Anthropic API to generate new response
         response = client.messages.create(
             model=MODEL,
-            max_tokens=2048,
+            max_tokens=max_tokens,
             system=SYSTEM_PROMPT,
             messages=conversation
         )
