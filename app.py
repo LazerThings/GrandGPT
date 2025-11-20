@@ -316,14 +316,24 @@ def regenerate_message(message_id):
     message = Message.query.get_or_404(message_id)
     chat = Chat.query.filter_by(id=message.chat_id, user_id=current_user.id).first_or_404()
 
-    # Delete this message and all messages after it
-    Message.query.filter(
-        Message.chat_id == message.chat_id,
-        Message.created_at >= message.created_at
-    ).delete()
+    if message.role == 'user':
+        # For user messages: keep the user message, delete only messages AFTER it
+        Message.query.filter(
+            Message.chat_id == message.chat_id,
+            Message.created_at > message.created_at
+        ).delete()
 
-    # Get conversation history up to the previous message
-    messages = Message.query.filter_by(chat_id=message.chat_id).order_by(Message.created_at).all()
+        # Get conversation history including this user message
+        messages = Message.query.filter_by(chat_id=message.chat_id).order_by(Message.created_at).all()
+    else:
+        # For assistant messages: delete the assistant message and all after it
+        Message.query.filter(
+            Message.chat_id == message.chat_id,
+            Message.created_at >= message.created_at
+        ).delete()
+
+        # Get conversation history up to (but not including) the deleted assistant message
+        messages = Message.query.filter_by(chat_id=message.chat_id).order_by(Message.created_at).all()
 
     if not messages:
         return jsonify({'error': 'No previous messages to regenerate from'}), 400
