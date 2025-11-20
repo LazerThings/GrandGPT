@@ -420,6 +420,7 @@ body {
     align-items: center;
     justify-content: center;
     transition: all 0.2s;
+    font-size: 20px;
 }
 
 .btn-icon:hover {
