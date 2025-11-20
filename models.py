@@ -10,6 +10,9 @@ class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
+    display_name = db.Column(db.String(100), nullable=True)
+    custom_api_key = db.Column(db.String(255), nullable=True)
+    extended_access = db.Column(db.Text, nullable=True)  # JSON array stored as text
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     chats = db.relationship('Chat', backref='user', lazy=True, cascade='all, delete-orphan')
 
@@ -18,6 +21,37 @@ class User(UserMixin, db.Model):
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
+
+    def get_extended_access(self):
+        """Get extended access list"""
+        if self.extended_access:
+            try:
+                return json.loads(self.extended_access)
+            except:
+                return []
+        return []
+
+    def set_extended_access(self, access_list):
+        """Set extended access list"""
+        self.extended_access = json.dumps(access_list)
+
+    def add_extended_access(self, access_type):
+        """Add an access type to extended access"""
+        access_list = self.get_extended_access()
+        if access_type not in access_list:
+            access_list.append(access_type)
+            self.set_extended_access(access_list)
+
+    def remove_extended_access(self, access_type):
+        """Remove an access type from extended access"""
+        access_list = self.get_extended_access()
+        if access_type in access_list:
+            access_list.remove(access_type)
+            self.set_extended_access(access_list)
+
+    def has_extended_access(self, access_type):
+        """Check if user has a specific extended access"""
+        return access_type in self.get_extended_access()
 
 class Chat(db.Model):
     id = db.Column(db.Integer, primary_key=True)

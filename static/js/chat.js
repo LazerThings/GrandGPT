@@ -16,6 +16,13 @@ const chatTitle = document.getElementById('chatTitle');
 const confirmModal = document.getElementById('confirmModal');
 const confirmOkBtn = document.getElementById('confirmOkBtn');
 const confirmCancelBtn = document.getElementById('confirmCancelBtn');
+const profileBtn = document.getElementById('profileBtn');
+const profileModal = document.getElementById('profileModal');
+const closeProfileModalBtn = document.getElementById('closeProfileModalBtn');
+const saveProfileBtn = document.getElementById('saveProfileBtn');
+const requestAccessBtn = document.getElementById('requestAccessBtn');
+const displayNameInput = document.getElementById('displayNameInput');
+const customApiKeyInput = document.getElementById('customApiKeyInput');
 
 // Configure marked for GFM
 marked.setOptions({
@@ -56,6 +63,88 @@ closeModalBtn.addEventListener('click', () => {
 settingsModal.addEventListener('click', (e) => {
     if (e.target === settingsModal) {
         settingsModal.classList.remove('active');
+    }
+});
+
+// Profile modal
+profileBtn.addEventListener('click', () => {
+    profileModal.classList.add('active');
+});
+
+closeProfileModalBtn.addEventListener('click', () => {
+    profileModal.classList.remove('active');
+});
+
+profileModal.addEventListener('click', (e) => {
+    if (e.target === profileModal) {
+        profileModal.classList.remove('active');
+    }
+});
+
+saveProfileBtn.addEventListener('click', async () => {
+    const displayName = displayNameInput.value.trim();
+    const customApiKey = customApiKeyInput.value.trim();
+
+    try {
+        const response = await fetch('/api/profile', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                display_name: displayName,
+                custom_api_key: customApiKey
+            })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            // Update the user data
+            window.userData.displayName = displayName;
+
+            // Update the profile button text
+            profileBtn.querySelector('span').textContent = displayName || window.userData.username;
+
+            // Show success message
+            alert('Profile updated successfully!');
+            profileModal.classList.remove('active');
+
+            // Reload the page to update messages
+            location.reload();
+        } else {
+            alert('Error: ' + (data.error || 'Failed to update profile'));
+        }
+    } catch (error) {
+        console.error('Error updating profile:', error);
+        alert('Failed to update profile. Please try again.');
+    }
+});
+
+requestAccessBtn.addEventListener('click', async () => {
+    const displayName = displayNameInput.value.trim();
+
+    try {
+        const response = await fetch('/api/request-extended-access', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                display_name: displayName
+            })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            alert('Extended access request submitted successfully! An administrator will review your request.');
+        } else {
+            alert('Error: ' + (data.error || 'Failed to submit request'));
+        }
+    } catch (error) {
+        console.error('Error requesting extended access:', error);
+        alert('Failed to submit request. Please try again.');
     }
 });
 
@@ -277,7 +366,7 @@ function appendMessage(role, content, messageId = null) {
 
     const header = document.createElement('div');
     header.className = 'message-header';
-    header.textContent = role === 'user' ? 'You' : 'Claude';
+    header.textContent = role === 'user' ? (window.userData.displayName || 'You') : 'Claude';
 
     const messageText = document.createElement('div');
     messageText.className = 'message-text';

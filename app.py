@@ -6,8 +6,12 @@ import os
 from dotenv import load_dotenv
 from datetime import datetime
 import markdown
+import yaml
 
 load_dotenv()
+
+# Extended access requests file
+EXTENDED_ACCESS_FILE = 'extended_access_requests.yaml'
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
@@ -20,7 +24,7 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
 
-# Initialize Anthropic client
+# Initialize default Anthropic client
 anthropic_client = Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
 
 # Bot configuration
@@ -31,6 +35,20 @@ SYSTEM_PROMPT = """You are Claude, an artificial intelligence.
 You can speak in full GitHub Flavored Markdown and it will be formatted for the user. This is the only formatting that will work, and HTML or other code will not parse. You can still provide code to the user over code blocks in Markdown.
 
 You are helpful, concise, and kind. You should provide quick responses and not elaborate too much on topics. You are a chatbot and should act friendly to the user, and you should try to be natural in your conversation."""
+
+def get_anthropic_client(user):
+    """Get the appropriate Anthropic client for a user."""
+    if user.custom_api_key:
+        return Anthropic(api_key=user.custom_api_key)
+    return anthropic_client
+
+def get_max_tokens(user):
+    """Get max tokens based on user's extended access."""
+    # Users with anthropic or global extended access get 64K tokens
+    if user.has_extended_access('anthropic') or user.has_extended_access('global'):
+        return 65536  # 64K
+    # Default users get 4K tokens
+    return 4096
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -50,6 +68,7 @@ def register():
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
+        display_name = request.form.get('display_name', '').strip()
 
         if not username or not password:
             flash('Username and password are required', 'error')
@@ -61,6 +80,8 @@ def register():
 
         user = User(username=username)
         user.set_password(password)
+        if display_name:
+            user.display_name = display_name
         db.session.add(user)
         db.session.commit()
 
@@ -199,10 +220,14 @@ def send_message(chat_id):
     })
 
     try:
+        # Get the appropriate Anthropic client for the user
+        client = get_anthropic_client(current_user)
+        max_tokens = get_max_tokens(current_user)
+
         # Call Anthropic API
-        response = anthropic_client.messages.create(
+        response = client.messages.create(
             model=MODEL,
-            max_tokens=2048,
+            max_tokens=max_tokens,
             system=SYSTEM_PROMPT,
             messages=conversation
         )
@@ -217,7 +242,7 @@ def send_message(chat_id):
         if len(messages) == 0:
             # Generate AI-powered title
             try:
-                title_response = anthropic_client.messages.create(
+                title_response = client.messages.create(
                     model=MODEL,
                     max_tokens=50,
                     system="You are a helpful assistant that generates short, concise titles for chat conversations. Based on the user's first message, provide ONLY a short title (3-6 words) for the conversation. Do not include quotes, punctuation at the end, or any other text - just the title.",
@@ -287,10 +312,14 @@ def edit_message(message_id):
         })
 
     try:
+        # Get the appropriate Anthropic client for the user
+        client = get_anthropic_client(current_user)
+        max_tokens = get_max_tokens(current_user)
+
         # Call Anthropic API to generate new response
-        response = anthropic_client.messages.create(
+        response = client.messages.create(
             model=MODEL,
-            max_tokens=2048,
+            max_tokens=max_tokens,
             system=SYSTEM_PROMPT,
             messages=conversation
         )
@@ -347,10 +376,14 @@ def regenerate_message(message_id):
         })
 
     try:
+        # Get the appropriate Anthropic client for the user
+        client = get_anthropic_client(current_user)
+        max_tokens = get_max_tokens(current_user)
+
         # Call Anthropic API to generate new response
-        response = anthropic_client.messages.create(
+        response = client.messages.create(
             model=MODEL,
-            max_tokens=2048,
+            max_tokens=max_tokens,
             system=SYSTEM_PROMPT,
             messages=conversation
         )
@@ -369,6 +402,69 @@ def regenerate_message(message_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
+
+@app.route('/api/profile', methods=['POST'])
+@login_required
+def update_profile():
+    data = request.json
+    display_name = data.get('display_name', '').strip()
+    custom_api_key = data.get('custom_api_key', '').strip()
+
+    # Update display name
+    current_user.display_name = display_name if display_name else None
+
+    # Update custom API key and extended access
+    old_api_key = current_user.custom_api_key
+    current_user.custom_api_key = custom_api_key if custom_api_key else None
+
+    # Manage "anthropic" extended access based on API key
+    if custom_api_key and not old_api_key:
+        # User just added an API key
+        current_user.add_extended_access('anthropic')
+    elif not custom_api_key and old_api_key:
+        # User just removed their API key
+        current_user.remove_extended_access('anthropic')
+
+    db.session.commit()
+
+    return jsonify({'success': True})
+
+@app.route('/api/request-extended-access', methods=['POST'])
+@login_required
+def request_extended_access():
+    data = request.json
+    display_name = data.get('display_name', '').strip()
+
+    # Update display name if provided
+    if display_name:
+        current_user.display_name = display_name
+        db.session.commit()
+
+    # Load existing requests
+    requests = []
+    if os.path.exists(EXTENDED_ACCESS_FILE):
+        try:
+            with open(EXTENDED_ACCESS_FILE, 'r') as f:
+                requests = yaml.safe_load(f) or []
+        except:
+            requests = []
+
+    # Check if user already has a pending request
+    existing_request = next((r for r in requests if r.get('username') == current_user.username), None)
+
+    if not existing_request:
+        # Add new request
+        requests.append({
+            'username': current_user.username,
+            'display_name': current_user.display_name or current_user.username,
+            'requested_at': datetime.utcnow().isoformat()
+        })
+
+        # Save requests
+        with open(EXTENDED_ACCESS_FILE, 'w') as f:
+            yaml.dump(requests, f, default_flow_style=False)
+
+    return jsonify({'success': True})
 
 with app.app_context():
     db.create_all()
