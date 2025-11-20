@@ -703,6 +703,15 @@ body {
     background-color: var(--bg-black);
 }
 
+.btn-secondary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.btn-secondary:disabled:hover {
+    background-color: var(--bg-darker);
+}
+
 .btn-danger {
     background-color: #dc2626;
     color: var(--text-primary);
