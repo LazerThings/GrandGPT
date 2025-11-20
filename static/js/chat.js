@@ -77,6 +77,13 @@ document.addEventListener('click', (e) => {
             menu.classList.remove('active');
         });
     }
+
+    // Close message overflow menus when clicking outside
+    if (!e.target.closest('.message-overflow-dropdown') && !e.target.closest('.message-overflow-btn')) {
+        document.querySelectorAll('.message-overflow-dropdown.active').forEach(dropdown => {
+            dropdown.classList.remove('active');
+        });
+    }
 });
 
 // Functions
@@ -221,29 +228,48 @@ function appendMessage(role, content, messageId = null) {
     const actionsDiv = document.createElement('div');
     actionsDiv.className = 'message-actions';
 
-    if (role === 'user') {
-        actionsDiv.innerHTML = `
-            <button class="message-action-btn" data-action="copy" title="Copy message">
-                <i class="ph-light ph-copy"></i>
-            </button>
-            <button class="message-action-btn" data-action="edit" title="Edit message">
-                <i class="ph-light ph-pencil-simple"></i>
-            </button>
-            <button class="message-action-btn" data-action="regenerate" title="Regenerate response">
-                <i class="ph-light ph-arrows-counter-clockwise"></i>
-            </button>
-        `;
-    } else {
-        actionsDiv.innerHTML = `
-            <button class="message-action-btn" data-action="copy" title="Copy message">
-                <i class="ph-light ph-copy"></i>
-            </button>
-            <button class="message-action-btn" data-action="regenerate" title="Regenerate response">
-                <i class="ph-light ph-arrows-counter-clockwise"></i>
-            </button>
-        `;
-    }
+    const buttons = role === 'user'
+        ? [
+            { action: 'copy', icon: 'ph-copy', title: 'Copy' },
+            { action: 'edit', icon: 'ph-pencil-simple', title: 'Edit' },
+            { action: 'regenerate', icon: 'ph-arrows-counter-clockwise', title: 'Regenerate' }
+          ]
+        : [
+            { action: 'copy', icon: 'ph-copy', title: 'Copy' },
+            { action: 'regenerate', icon: 'ph-arrows-counter-clockwise', title: 'Regenerate' }
+          ];
 
+    // Create regular buttons
+    const regularButtons = document.createElement('div');
+    regularButtons.className = 'message-regular-buttons';
+    buttons.forEach(btn => {
+        regularButtons.innerHTML += `
+            <button class="message-action-btn" data-action="${btn.action}" title="${btn.title}">
+                <i class="ph-light ${btn.icon}"></i>
+            </button>
+        `;
+    });
+
+    // Create overflow menu
+    const overflowMenu = document.createElement('div');
+    overflowMenu.className = 'message-overflow-menu';
+    overflowMenu.style.display = 'none';
+    overflowMenu.innerHTML = `
+        <button class="message-overflow-btn" title="More actions">
+            <i class="ph-light ph-dots-three"></i>
+        </button>
+        <div class="message-overflow-dropdown">
+            ${buttons.map(btn => `
+                <button class="message-overflow-option" data-action="${btn.action}">
+                    <i class="ph-light ${btn.icon}"></i>
+                    <span>${btn.title}</span>
+                </button>
+            `).join('')}
+        </div>
+    `;
+
+    actionsDiv.appendChild(regularButtons);
+    actionsDiv.appendChild(overflowMenu);
     borderDiv.appendChild(actionsDiv);
 
     const contentDiv = document.createElement('div');
@@ -265,13 +291,52 @@ function appendMessage(role, content, messageId = null) {
     messageDiv.appendChild(contentDiv);
     messagesContainer.appendChild(messageDiv);
 
-    // Add event listeners for action buttons
-    actionsDiv.querySelectorAll('.message-action-btn').forEach(btn => {
+    // Add event listeners for regular action buttons
+    regularButtons.querySelectorAll('.message-action-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
             const action = btn.dataset.action;
             handleMessageAction(action, messageId, content, messageDiv);
         });
     });
+
+    // Add event listeners for overflow menu
+    const overflowBtn = overflowMenu.querySelector('.message-overflow-btn');
+    const overflowDropdown = overflowMenu.querySelector('.message-overflow-dropdown');
+
+    if (overflowBtn && overflowDropdown) {
+        overflowBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            // Close all other overflow menus
+            document.querySelectorAll('.message-overflow-dropdown.active').forEach(dropdown => {
+                if (dropdown !== overflowDropdown) dropdown.classList.remove('active');
+            });
+            overflowDropdown.classList.toggle('active');
+        });
+
+        overflowDropdown.querySelectorAll('.message-overflow-option').forEach(option => {
+            option.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const action = option.dataset.action;
+                overflowDropdown.classList.remove('active');
+                handleMessageAction(action, messageId, content, messageDiv);
+            });
+        });
+    }
+
+    // Check if buttons fit, otherwise show overflow menu
+    setTimeout(() => {
+        const borderHeight = borderDiv.offsetHeight;
+        const buttonsHeight = regularButtons.scrollHeight;
+
+        // If buttons don't fit (with some padding for safety)
+        if (buttonsHeight > borderHeight - 40) {
+            regularButtons.style.display = 'none';
+            overflowMenu.style.display = 'block';
+        } else {
+            regularButtons.style.display = 'flex';
+            overflowMenu.style.display = 'none';
+        }
+    }, 0);
 }
 
 async function sendMessage() {
