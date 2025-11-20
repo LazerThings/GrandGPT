@@ -277,6 +277,21 @@ body {
     font-size: 14px;
 }
 
+.btn-profile {
+    background: none;
+    border: none;
+    color: var(--text-primary);
+    font-size: 14px;
+    cursor: pointer;
+    padding: 0;
+    text-align: left;
+    transition: color 0.2s;
+}
+
+.btn-profile:hover {
+    color: var(--primary-color);
+}
+
 .btn-logout {
     color: var(--primary-color);
     text-decoration: none;
@@ -382,7 +397,7 @@ body {
 .message-action-btn {
     background: none;
     border: none;
-    color: var(--text-secondary);
+    color: #ffffff;
     padding: 3px;
     border-radius: 4px;
     display: flex;
@@ -405,7 +420,7 @@ body {
 .message-overflow-btn {
     background: none;
     border: none;
-    color: var(--text-secondary);
+    color: #ffffff;
     padding: 3px;
     border-radius: 4px;
     display: flex;

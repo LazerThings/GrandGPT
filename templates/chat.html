@@ -15,7 +15,9 @@
         </div>
         <div class="sidebar-footer">
             <div class="user-info">
-                <span>{{ current_user.username }}</span>
+                <button id="profileBtn" class="btn-profile" title="Profile">
+                    <span>{{ current_user.display_name or current_user.username }}</span>
+                </button>
                 <a href="{{ url_for('logout') }}" class="btn-logout">Logout</a>
             </div>
         </div>
@@ -83,6 +85,38 @@
     </div>
 </div>
 
+<!-- Profile Modal -->
+<div class="modal" id="profileModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Profile Settings</h3>
+            <button class="modal-close" id="closeProfileModalBtn">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label for="displayNameInput">Display Name</label>
+                <input type="text" id="displayNameInput" placeholder="How you want to appear in messages" value="{{ current_user.display_name or '' }}">
+            </div>
+            <div class="form-group">
+                <label for="customApiKeyInput">Custom Anthropic API Key (Optional)</label>
+                <input type="password" id="customApiKeyInput" placeholder="sk-ant-..." value="{{ current_user.custom_api_key or '' }}">
+                <small style="color: var(--text-secondary); font-size: 12px;">Leave blank to use system API key. Your key is stored securely.</small>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" id="requestAccessBtn">Request Extended Access</button>
+            <button class="btn btn-primary" id="saveProfileBtn">Save Changes</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Pass user data to JavaScript
+    window.userData = {
+        username: "{{ current_user.username }}",
+        displayName: "{{ current_user.display_name or '' }}"
+    };
+</script>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script src="{{ url_for('static', filename='js/chat.js') }}"></script>
 {% endblock %}
