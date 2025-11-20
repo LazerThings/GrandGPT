@@ -160,17 +160,20 @@ function appendMessage(role, content) {
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${role}`;
 
+    const contentDiv = document.createElement('div');
+    contentDiv.className = 'message-content';
+
     const header = document.createElement('div');
     header.className = 'message-header';
     header.textContent = role === 'user' ? 'You' : 'Claude';
 
-    const contentDiv = document.createElement('div');
-    contentDiv.className = 'message-content';
-
+    const messageText = document.createElement('div');
+    messageText.className = 'message-text';
     // Render markdown for all messages (both user and assistant)
-    contentDiv.innerHTML = marked.parse(content);
+    messageText.innerHTML = marked.parse(content);
 
-    messageDiv.appendChild(header);
+    contentDiv.appendChild(header);
+    contentDiv.appendChild(messageText);
     messageDiv.appendChild(contentDiv);
     messagesContainer.appendChild(messageDiv);
 }
