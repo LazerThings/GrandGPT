@@ -118,7 +118,8 @@ def logout():
 @app.route('/chat')
 @login_required
 def chat_page():
-    return render_template('chat.html', bot_name=BOT_NAME)
+    has_global_access = current_user.has_extended_access('global')
+    return render_template('chat.html', bot_name=BOT_NAME, has_global_access=has_global_access)
 
 @app.route('/api/chats', methods=['GET'])
 @login_required

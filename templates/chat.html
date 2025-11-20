@@ -104,8 +104,15 @@
             </div>
         </div>
         <div class="modal-footer">
-            <button class="btn btn-secondary" id="requestAccessBtn">Request Extended Access</button>
-            <button class="btn btn-primary" id="saveProfileBtn">Save Changes</button>
+            <div style="display: flex; flex-direction: column; gap: 10px; width: 100%;">
+                <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                    <button class="btn btn-secondary" id="requestAccessBtn" {% if has_global_access %}disabled{% endif %}>Request Extended Access</button>
+                    <button class="btn btn-primary" id="saveProfileBtn">Save Changes</button>
+                </div>
+                {% if has_global_access %}
+                <small style="color: var(--text-secondary); font-size: 12px; text-align: right;">You have extended access with system API keys.</small>
+                {% endif %}
+            </div>
         </div>
     </div>
 </div>

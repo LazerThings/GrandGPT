@@ -122,6 +122,11 @@ saveProfileBtn.addEventListener('click', async () => {
 });
 
 requestAccessBtn.addEventListener('click', async () => {
+    // Don't do anything if button is disabled
+    if (requestAccessBtn.disabled) {
+        return;
+    }
+
     const displayName = displayNameInput.value.trim();
 
     try {
