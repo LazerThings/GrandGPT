@@ -203,7 +203,8 @@ body {
 
 .chat-item-delete {
     position: absolute;
-    top: 10px;
+    top: 50%;
+    transform: translateY(-50%);
     right: 10px;
     background: none;
     border: none;
@@ -212,6 +213,10 @@ body {
     padding: 2px;
     opacity: 0;
     transition: opacity 0.2s;
+    font-size: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .chat-item:hover .chat-item-delete {
@@ -305,7 +310,7 @@ body {
 }
 
 .message-content {
-    padding: 3px;
+    padding: 3px 3px 3px 8px;
     background-color: rgba(255, 255, 255, 0.03);
     border-left: 4px solid var(--text-secondary);
 }
@@ -505,6 +510,37 @@ body {
 
 .modal-body {
     padding: 20px;
+}
+
+.modal-footer {
+    padding: 20px;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.confirm-modal {
+    max-width: 400px;
+}
+
+.btn-secondary {
+    background-color: var(--bg-darker);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+}
+
+.btn-secondary:hover {
+    background-color: var(--bg-black);
+}
+
+.btn-danger {
+    background-color: #dc2626;
+    color: var(--text-primary);
+}
+
+.btn-danger:hover {
+    background-color: #b91c1c;
 }
 
 /* Scrollbar */
