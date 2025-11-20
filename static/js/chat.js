@@ -13,6 +13,9 @@ const settingsBtn = document.getElementById('settingsBtn');
 const settingsModal = document.getElementById('settingsModal');
 const closeModalBtn = document.getElementById('closeModalBtn');
 const chatTitle = document.getElementById('chatTitle');
+const confirmModal = document.getElementById('confirmModal');
+const confirmOkBtn = document.getElementById('confirmOkBtn');
+const confirmCancelBtn = document.getElementById('confirmCancelBtn');
 
 // Configure marked for GFM
 marked.setOptions({
@@ -56,6 +59,17 @@ settingsModal.addEventListener('click', (e) => {
     }
 });
 
+// Confirmation modal
+confirmCancelBtn.addEventListener('click', () => {
+    confirmModal.classList.remove('active');
+});
+
+confirmModal.addEventListener('click', (e) => {
+    if (e.target === confirmModal) {
+        confirmModal.classList.remove('active');
+    }
+});
+
 // Functions
 async function loadChats() {
     try {
@@ -84,11 +98,14 @@ function renderChatList() {
 
         chatItem.innerHTML = `
             <div class="chat-item-title">${escapeHtml(chat.title)}</div>
-            <button class="chat-item-delete" data-chat-id="${chat.id}" title="Delete chat">×</button>
+            <button class="chat-item-delete" data-chat-id="${chat.id}" title="Delete chat">
+                <i class="ph-light ph-trash-simple"></i>
+            </button>
         `;
 
         chatItem.addEventListener('click', (e) => {
-            if (!e.target.classList.contains('chat-item-delete')) {
+            // Don't load chat if clicking delete button or its icon
+            if (!e.target.closest('.chat-item-delete')) {
                 loadChat(chat.id);
             }
         });
@@ -270,33 +287,44 @@ async function sendMessage() {
     }
 }
 
-async function deleteChat(chatId) {
-    if (!confirm('Are you sure you want to delete this chat?')) {
-        return;
-    }
+function deleteChat(chatId) {
+    // Show confirmation modal
+    document.getElementById('confirmTitle').textContent = 'Delete Chat';
+    document.getElementById('confirmMessage').textContent = 'Are you sure you want to delete this chat? This action cannot be undone.';
+    confirmModal.classList.add('active');
 
-    try {
-        await fetch(`/api/chats/${chatId}`, {
-            method: 'DELETE'
-        });
+    // Remove any existing click handlers by cloning the button
+    const oldOkBtn = document.getElementById('confirmOkBtn');
+    const newOkBtn = oldOkBtn.cloneNode(true);
+    oldOkBtn.parentNode.replaceChild(newOkBtn, oldOkBtn);
 
-        chats = chats.filter(c => c.id !== chatId);
+    // Add new click handler for this specific delete
+    newOkBtn.addEventListener('click', async () => {
+        confirmModal.classList.remove('active');
 
-        if (currentChatId === chatId) {
-            currentChatId = null;
-            chatTitle.textContent = 'GrandGPT';
-            messagesContainer.innerHTML = `
-                <div class="welcome-message">
-                    <h2>Welcome to GrandGPT!</h2>
-                    <p>Start a new chat to begin conversing.</p>
-                </div>
-            `;
+        try {
+            await fetch(`/api/chats/${chatId}`, {
+                method: 'DELETE'
+            });
+
+            chats = chats.filter(c => c.id !== chatId);
+
+            if (currentChatId === chatId) {
+                currentChatId = null;
+                chatTitle.textContent = 'GrandGPT';
+                messagesContainer.innerHTML = `
+                    <div class="welcome-message">
+                        <h2>Welcome to GrandGPT!</h2>
+                        <p>Start a new chat to begin conversing.</p>
+                    </div>
+                `;
+            }
+
+            renderChatList();
+        } catch (error) {
+            console.error('Error deleting chat:', error);
         }
-
-        renderChatList();
-    } catch (error) {
-        console.error('Error deleting chat:', error);
-    }
+    });
 }
 
 function scrollToBottom() {
